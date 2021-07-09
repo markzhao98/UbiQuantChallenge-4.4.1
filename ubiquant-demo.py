@@ -2,7 +2,6 @@
 厦一代表队
 """
 
-from typing import Sequence
 import grpc
 import contest_pb2
 import contest_pb2_grpc
@@ -30,23 +29,36 @@ class Client:
         # login
         self.session_key = None # 用于提交position
         self.login_success = None # 是否成功login
-        
         # get data
         self.sequence = None # 数据index
         self.has_next_question = None # 后续是否有数据
         self.capital = None # 总资产
         self.dailystk = None # 数据！共500支股票
         self.positons = None # 当前持仓 
-        
-        # ret
+        # output
         self.is_initialized = False
-        self.loaded_model = pickle.load(open('Strategy/linear_model_01.sav', 'rb'))
+        self.loaded_model = pickle.load(open('Strategy/linear_model.sav', 'rb')) # 使用的模型
         self.pos_frame = pd.DataFrame(np.zeros([10, 500]))
-        self.leverage = 1
-        
+        self.leverage = 1.2  # 杠杆率
         # submit
         self.accepted = None
-        
+
+    def XOX(self, s, p):
+        '''
+        将绝对量数据转化为增长率 ( e.g. [1,2,3] -> [2,1.5,NA] )
+        s : array
+        p : look-back period
+        '''
+        return np.append((s[p:] - s[:-p])/s[:-p], np.repeat(np.nan, p))
+
+    def lagging(self, s, l):
+        '''
+        向前平移时间序列 ( e.g. [1,2,3] -> [2,3,NA] )
+        s : array
+        l : lagging period
+        '''
+        return np.append(s[l:], np.repeat(np.nan, l))
+
     def login(self):
         response_login = self.stub_contest.login(contest_pb2.LoginRequest(
             user_id=self.ID,
@@ -71,33 +83,28 @@ class Client:
         self.dailystk = response_question.dailystk # 数据！共500支股票
         self.positons = response_question.positions # 当前持仓 
         
-    def ret(self):
+    def output(self):
+
         # if self.is_initialized == False:
         #     self.submit_pos = np.random.randint(low=-20, high=30,size=(500)) # 随机仓位
         #     return
         # else: # 在这里编写你的策略 ...
         #     pass
+
         X_pred = self.dailynew.iloc[:,8:108].values
         pred = self.loaded_model.predict(X_pred)
         longstock = pred.argsort()[-25:]
         shortstock = pred.argsort()[:25]
         newpostoday = np.zeros(500)
-        lol = self.capital*self.leverage/500/self.dailynew.loc[:,5].values
-        newpostoday[longstock] = lol[longstock]
-        newpostoday[shortstock] = -lol[shortstock]
+        newpostoday[longstock] = self.capital*self.leverage/500/self.dailynew \
+            .iloc[:,5].values[longstock]
+        newpostoday[shortstock] = -self.capital*self.leverage/500/self.dailynew \
+            .iloc[:,5].values[shortstock]
 
         self.pos_frame = self.pos_frame.append(pd.DataFrame([newpostoday]))
         self.pos_frame = self.pos_frame.iloc[1:]
         self.submit_pos = self.pos_frame.sum().values
         return
-    
-    def XOX(self, s, p):
-        '''
-        将绝对量数据转化为增长率
-        s : array
-        p : look-back period
-        '''
-        return np.append(np.repeat(0, p), (s[p:] - s[:-p])/s[:-p])
 
     def submit(self):
         response_ansr = self.stub_contest.submit_answer(contest_pb2.AnswerRequest(
@@ -105,21 +112,22 @@ class Client:
             user_pin=self.PIN,
             session_key=self.session_key, # 使用login时系统分配的key来提交
             sequence=self.sequence, # 使用getdata时获得的sequence
-            positions=self.submit_pos # 使用ret中计算的pos作为答案仓位
-        )) 
+            positions=self.submit_pos # 使用output中计算的pos作为答案仓位
+        ))
         self.accepted = response_ansr.accepted # 是否打通提交通道
         if not self.accepted:
             print(response_ansr.reason) # 未成功原因
         
     def run(self):
 
-        
         last_get = time.time()
+
         self.login()
+        print(f'Log in result: {self.login_success} ...')   
         self.getdata()
         print(f'Sequence now: {self.sequence} ...')
         self.dailynew = pd.DataFrame(np.asarray([array.values for array in self.dailystk]))
-        self.ret()
+        self.output()
         self.submit()
         print(f'Submit result: {self.accepted} ...')
         
@@ -130,24 +138,16 @@ class Client:
                 last_get += 5
                 
                 self.login()
-                print(f'Log in result: {self.login_success} ...')   
-
+                print(f'Log in result: {self.login_success} ...')
                 self.getdata()
                 print(f'Sequence now: {self.sequence} ...')
-                
-                # print(self.capital)
-                # print(self.positons)
-
                 self.dailynew = pd.DataFrame(np.asarray([array.values for array in self.dailystk]))
-                a = time.time()
-                self.ret()
-                print(time.time() - a)
-
+                self.output()
                 self.submit()
                 print(f'Submit result: {self.accepted} ...')
                 
         except KeyboardInterrupt:
-            return      
+            return
 
 if __name__ == "__main__":
     c = Client()
