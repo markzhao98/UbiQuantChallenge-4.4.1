@@ -37,9 +37,11 @@ class Client:
         self.positons = None # 当前持仓 
         # output
         self.is_initialized = False
-        self.loaded_model = pickle.load(open('Strategy/MLP_model_1.sav', 'rb')) # 使用的模型
+        self.loaded_model = pickle.load(open('Strategy/Model/MLP_model_1.sav', 'rb')) # 使用的模型
         self.pos_frame = pd.DataFrame(np.zeros([10, 500]))
         self.leverage = 1.5  # 杠杆率
+        self.holding = 10  # 持有周期
+        self.numnewpos = 25  # 每轮分别新做多和做空股数
         # submit
         self.accepted = None
 
@@ -96,10 +98,10 @@ class Client:
         longstock = pred.argsort()[-25:]
         shortstock = pred.argsort()[:25]
         newpostoday = np.zeros(500)
-        newpostoday[longstock] = self.capital*self.leverage/50/10/self.dailynew \
-            .iloc[:,5].values[longstock]
-        newpostoday[shortstock] = -self.capital*self.leverage/50/10/self.dailynew \
-            .iloc[:,5].values[shortstock]
+        newpostoday[longstock] = self.capital*self.leverage/(2*self.numnewpos) \
+            /self.holding/self.dailynew.iloc[:,5].values[longstock]
+        newpostoday[shortstock] = -self.capital*self.leverage/(2*self.numnewpos) \
+            /self.holding/self.dailynew.iloc[:,5].values[shortstock]
 
         self.pos_frame = self.pos_frame.append(pd.DataFrame([newpostoday]))
         self.pos_frame = self.pos_frame.iloc[1:]
@@ -133,7 +135,7 @@ class Client:
         
         try:        
             while True:
-                while time.time() - last_get < 5 + 0.1 * random.randint(0,9):
+                while time.time() - last_get < 5 + 0.1 * random.randint(0,5):
                     continue
                 last_get += 5
                 
