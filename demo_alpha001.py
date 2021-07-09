@@ -1,3 +1,8 @@
+"""
+@Alpha001
+6/22/2021 
+"""
+
 from typing import Sequence
 import grpc
 import contest_pb2
@@ -6,14 +11,13 @@ import question_pb2
 import question_pb2_grpc
 
 import numpy as np
-import pandas as pd
 import time
 
 class Client:
     
     # --- class attribute ---
-    ID = 121 # your ID
-    PIN = 's5eouCB3X1' # your PIN
+    ID = XXX # your ID
+    PIN = 'XXX' # your PIN
     CHANNEL_LOGIN_SUBMIT = grpc.insecure_channel('47.100.97.93:40723')
     CHANNEL_GETDATA = grpc.insecure_channel('47.100.97.93:40722')
     
@@ -77,65 +81,21 @@ class Client:
         if not self.accepted:
             print(response_ansr.reason) # 未成功原因
         
-    # def run(self):
-    #     try:
-    #         while True:
-
-    #             time.sleep(0.5) # 隔4.5秒 搞一次
-
-    #             print(time.time)
-
-    #             self.login()
-    #             print(f'Log in result: {self.login_success} ...')
-    #             self.getdata()
-    #             print(f'Sequence now: {self.sequence} ...')
-    #             pd.DataFrame(np.asarray([array.values for array in self.dailystk])) \
-    #                 .to_csv('data1000.csv', index=False, mode='a', header=False)
-    #             self.alpha001_ret1()
-    #             self.submit()
-    #             print(f'Submit result: {self.accepted} ...')
-
-
-    #     except KeyboardInterrupt:
-    #         return      
-
     def run(self):
-
-        pd_data = pd.DataFrame()
-        last_get = time.time()
-
-        try:            
+        try:
             while True:
-                while time.time() - last_get > 5:
+                time.sleep(4.5) # 隔4.5秒 搞一次
 
-                    last_get += 5
-                    
-                    t_login = time.time()
-
-                    self.login()
-                    print(f'Log in result: {self.login_success} ...')   
-
-                    t_getdata = time.time()
-                    self.getdata()
-                    print(f'Sequence now: {self.sequence} ...')
-                    # print(f'len of dailystk: {len(pd_data)}')
-                    
-                    pd_data.append(pd.DataFrame(np.asarray([array.values for array in self.dailystk])))
-                    # pd.DataFrame(np.asarray([array.values for array in self.dailystk])).to_csv('data.csv', index=False, mode='a', header=False)
-
-                    t_ret = time.time()
-                    self.alpha001_ret1()
-
-                    t_submit = time.time()
-                    self.submit()
-                    print(f'Submit result: {self.accepted} ...')
+                self.login()
+                print(f'Log in result: {self.login_success} ...')
+                self.getdata()
+                print(f'Sequence now: {self.sequence} ...')
+                self.alpha001_ret1()
+                self.submit()
+                print(f'Submit result: {self.accepted} ...')
                 
-                    print(f'time for login: {t_getdata - t_login}')
-                    print(f'time for getdt: {t_ret - t_getdata}')
-                    print(f'time for retur: {t_submit - t_ret}')
-                    print(f'time for submi: {time.time() - t_submit}')
         except KeyboardInterrupt:
-            return
+            return      
 
 if __name__ == "__main__":
     c = Client()
