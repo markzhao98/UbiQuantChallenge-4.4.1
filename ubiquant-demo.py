@@ -37,9 +37,9 @@ class Client:
         self.positons = None # 当前持仓 
         # output
         self.is_initialized = False
-        self.loaded_model = pickle.load(open('Strategy/linear_model.sav', 'rb')) # 使用的模型
+        self.loaded_model = pickle.load(open('Strategy/MLP_model_1.sav', 'rb')) # 使用的模型
         self.pos_frame = pd.DataFrame(np.zeros([10, 500]))
-        self.leverage = 1.2  # 杠杆率
+        self.leverage = 1.5  # 杠杆率
         # submit
         self.accepted = None
 
@@ -96,9 +96,9 @@ class Client:
         longstock = pred.argsort()[-25:]
         shortstock = pred.argsort()[:25]
         newpostoday = np.zeros(500)
-        newpostoday[longstock] = self.capital*self.leverage/500/self.dailynew \
+        newpostoday[longstock] = self.capital*self.leverage/50/10/self.dailynew \
             .iloc[:,5].values[longstock]
-        newpostoday[shortstock] = -self.capital*self.leverage/500/self.dailynew \
+        newpostoday[shortstock] = -self.capital*self.leverage/50/10/self.dailynew \
             .iloc[:,5].values[shortstock]
 
         self.pos_frame = self.pos_frame.append(pd.DataFrame([newpostoday]))
