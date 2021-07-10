@@ -2,6 +2,7 @@
 厦一代表队
 """
 
+from os import lstat
 import grpc
 import contest_pb2
 import contest_pb2_grpc
@@ -13,6 +14,7 @@ import numpy as np
 import pandas as pd
 import time
 import random
+import threading
 
 class Client:
     
@@ -37,7 +39,7 @@ class Client:
         self.positons = None # 当前持仓 
         # output
         self.is_initialized = False
-        self.loaded_model = pickle.load(open('Strategy/Model/MLP_model_1.sav', 'rb')) # 使用的模型
+        self.loaded_model = pickle.load(open('Strategy/Model/MLP_model_2.sav', 'rb')) # 使用的模型
         self.pos_frame = pd.DataFrame(np.zeros([10, 500]))
         self.leverage = 1.5  # 杠杆率
         self.holding = 10  # 持有周期
@@ -119,7 +121,11 @@ class Client:
         self.accepted = response_ansr.accepted # 是否打通提交通道
         if not self.accepted:
             print(response_ansr.reason) # 未成功原因
-        
+            if response_ansr.reason == "session key not match":
+                self.login()
+                print(f'Retry logging in result: {self.login_success} ...')
+                print(f'New session key: {self.session_key}')        
+
     def run(self):
 
         last_get = time.time()
@@ -129,7 +135,8 @@ class Client:
         self.getdata()
         print(f'Sequence now: {self.sequence} ...')
         self.dailynew = pd.DataFrame(np.asarray([array.values for array in self.dailystk]))
-        self.output()
+        if self.sequence != -1:
+            self.output()
         self.submit()
         print(f'Submit result: {self.accepted} ...')
         
@@ -137,20 +144,45 @@ class Client:
             while True:
                 while time.time() - last_get < 5 + 0.1 * random.randint(0,5):
                     continue
-                last_get += 5
+                last_get += 1
                 
                 self.login()
                 print(f'Log in result: {self.login_success} ...')
                 self.getdata()
                 print(f'Sequence now: {self.sequence} ...')
                 self.dailynew = pd.DataFrame(np.asarray([array.values for array in self.dailystk]))
-                self.output()
+                self.dailynew.to_csv('data.csv', index=False, mode='a', header=False)
+                if self.sequence != -1:
+                    self.output()
                 self.submit()
                 print(f'Submit result: {self.accepted} ...')
-                
+
         except KeyboardInterrupt:
             return
 
+def train_func():
+    train_last_get = time.time()
+
+    try:
+        while True:
+            while time.time() - train_last_get < 10:
+                continue
+            train_last_get += 10
+
+            """TODO: add training script
+                data = pd.read('data.csv')
+                new_model = sklearn.lr(data)
+                
+                self.loaded_model = new_model
+            """
+
+
+    except KeyboardInterrupt:
+        return 
+
 if __name__ == "__main__":
+
     c = Client()
+    th = threading.Thread(target=train_func)
+    th.start()
     c.run()
